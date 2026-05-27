@@ -1,52 +1,32 @@
 /**
- * Configuration module — reads vision model settings from ~/.deepseek/config.toml
- * or accepts them directly.
+ * Configuration module — reads vision model settings from environment variables
+ * or a .env file, or accepts them directly via CLI flags.
+ *
+ * Environment variables:
+ *   VISION_MODEL       — Model identifier (e.g., "qwen3.5-omni-plus-2026-03-15")
+ *   VISION_API_KEY     — API key
+ *   VISION_BASE_URL    — API base URL (default: "https://api.openai.com/v1")
+ *   VISION_PRIMITIVES  — "true" or "false" (default: "true")
  */
-/** Vision model configuration (mirrors DeepSeek-TUI's VisionModelConfig). */
+/** Vision model configuration. */
 export interface VisionModelConfig {
     /** Model identifier (e.g., "qwen3.5-omni-plus-2026-03-15"). Required. */
     model: string;
-    /** API key. Falls back to the main provider key if not set. */
+    /** API key. */
     apiKey?: string;
     /** Base URL for the OpenAI-compatible API. Defaults to "https://api.openai.com/v1". */
     baseUrl?: string;
     /** Whether to request bounding-box primitives. Defaults to true. */
     primitives?: boolean;
 }
-/** Raw TOML shape — keys are snake_case as in the file. */
-interface RawTomlConfig {
-    provider?: string;
-    providers?: Record<string, {
-        api_key?: string;
-        base_url?: string;
-        model?: string;
-    }>;
-    features?: {
-        vision_model?: boolean;
-    };
-    vision_model?: {
-        model?: string;
-        api_key?: string;
-        base_url?: string;
-        primitives?: boolean;
-    };
-}
-/** Default config file path. */
-export declare const DEFAULT_CONFIG_PATH: string;
-/**
- * Read and parse ~/.deepseek/config.toml.
- * Returns undefined if the file doesn't exist.
- */
-export declare function readConfig(configPath?: string): RawTomlConfig | undefined;
 /**
  * Resolve the effective vision model config.
  *
  * Priority:
- * 1. Explicit config passed in (from CLI flags, env vars, etc.)
- * 2. [vision_model] section in ~/.deepseek/config.toml
- * 3. Main provider config as fallback for apiKey/baseUrl
+ * 1. Explicit values passed in (CLI flags)
+ * 2. Environment variables (VISION_MODEL, VISION_API_KEY, VISION_BASE_URL, VISION_PRIMITIVES)
+ * 3. .env file values (auto-loaded from CWD)
  *
- * Throws if no model can be determined.
+ * Throws if no model or API key can be determined.
  */
 export declare function resolveVisionConfig(explicit?: Partial<VisionModelConfig>): VisionModelConfig;
-export {};

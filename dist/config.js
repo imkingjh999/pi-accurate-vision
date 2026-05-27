@@ -1,63 +1,77 @@
 /**
- * Configuration module — reads vision model settings from ~/.deepseek/config.toml
- * or accepts them directly.
+ * Configuration module — reads vision model settings from environment variables
+ * or a .env file, or accepts them directly via CLI flags.
+ *
+ * Environment variables:
+ *   VISION_MODEL       — Model identifier (e.g., "qwen3.5-omni-plus-2026-03-15")
+ *   VISION_API_KEY     — API key
+ *   VISION_BASE_URL    — API base URL (default: "https://api.openai.com/v1")
+ *   VISION_PRIMITIVES  — "true" or "false" (default: "true")
  */
 import { readFileSync } from "node:fs";
-import { homedir } from "node:os";
 import { join } from "node:path";
-import { parse as parseToml } from "smol-toml";
-/** Default config file path. */
-export const DEFAULT_CONFIG_PATH = join(homedir(), ".deepseek", "config.toml");
 /**
- * Read and parse ~/.deepseek/config.toml.
- * Returns undefined if the file doesn't exist.
+ * Read a .env file and populate process.env with its values.
+ * Ignores comments and blank lines. Does not overwrite existing env vars.
  */
-export function readConfig(configPath) {
-    const path = configPath ?? DEFAULT_CONFIG_PATH;
-    try {
-        const text = readFileSync(path, "utf-8");
-        return parseToml(text);
-    }
-    catch (e) {
-        if (e instanceof Error &&
-            "code" in e &&
-            e.code === "ENOENT") {
-            return undefined;
+function loadDotEnv(dir) {
+    const candidates = dir
+        ? [join(dir, ".env")]
+        : [join(process.cwd(), ".env")];
+    for (const envPath of candidates) {
+        try {
+            const text = readFileSync(envPath, "utf-8");
+            for (const line of text.split("\n")) {
+                const trimmed = line.trim();
+                if (!trimmed || trimmed.startsWith("#"))
+                    continue;
+                const eq = trimmed.indexOf("=");
+                if (eq === -1)
+                    continue;
+                const key = trimmed.slice(0, eq).trim();
+                const val = trimmed.slice(eq + 1).trim();
+                // Remove surrounding quotes
+                const clean = (val.startsWith('"') && val.endsWith('"')) ||
+                    (val.startsWith("'") && val.endsWith("'"))
+                    ? val.slice(1, -1)
+                    : val;
+                // Don't overwrite existing env vars (CLI / shell takes priority)
+                if (process.env[key] === undefined) {
+                    process.env[key] = clean;
+                }
+            }
+            return; // loaded first found
         }
-        throw new Error(`Failed to read config at ${path}: ${e}`);
+        catch {
+        }
     }
 }
 /**
  * Resolve the effective vision model config.
  *
  * Priority:
- * 1. Explicit config passed in (from CLI flags, env vars, etc.)
- * 2. [vision_model] section in ~/.deepseek/config.toml
- * 3. Main provider config as fallback for apiKey/baseUrl
+ * 1. Explicit values passed in (CLI flags)
+ * 2. Environment variables (VISION_MODEL, VISION_API_KEY, VISION_BASE_URL, VISION_PRIMITIVES)
+ * 3. .env file values (auto-loaded from CWD)
  *
- * Throws if no model can be determined.
+ * Throws if no model or API key can be determined.
  */
 export function resolveVisionConfig(explicit) {
-    const fileConfig = readConfig();
-    const vmSection = fileConfig?.vision_model;
-    const mainProvider = fileConfig?.provider;
-    const providerSection = mainProvider
-        ? fileConfig?.providers?.[mainProvider]
-        : undefined;
-    // Merge: explicit > [vision_model] > main provider
-    const model = explicit?.model ?? vmSection?.model;
+    // Auto-load .env if not already done
+    loadDotEnv();
+    const model = explicit?.model ?? process.env.VISION_MODEL;
     if (!model) {
-        throw new Error("No vision model specified. Set [vision_model] model in ~/.deepseek/config.toml or pass --model.");
+        throw new Error("No vision model specified. Set VISION_MODEL env var (or .env file) or pass --model.");
     }
-    const apiKey = explicit?.apiKey ?? vmSection?.api_key ?? providerSection?.api_key;
+    const apiKey = explicit?.apiKey ?? process.env.VISION_API_KEY;
     if (!apiKey) {
-        throw new Error("No API key found. Set [vision_model] api_key or [providers.*] api_key in config, or pass --api-key.");
+        throw new Error("No API key found. Set VISION_API_KEY env var (or .env file) or pass --api-key.");
     }
     const baseUrl = explicit?.baseUrl ??
-        vmSection?.base_url ??
-        providerSection?.base_url ??
+        process.env.VISION_BASE_URL ??
         "https://api.openai.com/v1";
-    const primitives = explicit?.primitives ?? vmSection?.primitives ?? true;
+    const primitives = explicit?.primitives ??
+        (process.env.VISION_PRIMITIVES === "false" ? false : true);
     return { model, apiKey, baseUrl, primitives };
 }
 //# sourceMappingURL=config.js.map

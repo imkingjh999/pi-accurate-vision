@@ -6,8 +6,8 @@
  */
 export { NORM_MAX, createBBox, buildDataUrl, mimeTypeForPath, runVisionAnalysis, parseAnalysisResponse, formatVisionContext, primitivesAnalysisPrompt, stripMarkdownFences, } from "./vision/bridge.js";
 export type { BBox, VisualPrimitive, ImageNote, VisionAnalysis, VisionAnalysisParams, } from "./vision/bridge.js";
-export { readConfig, resolveVisionConfig, DEFAULT_CONFIG_PATH, } from "./config.js";
-export type { VisionModelConfig, } from "./config.js";
+export { resolveVisionConfig } from "./config.js";
+export type { VisionModelConfig } from "./config.js";
 /**
  * Convenience: analyze an image file and return the formatted context string.
  *
