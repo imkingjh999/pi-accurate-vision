@@ -15,12 +15,11 @@ function printUsage() {
     console.error(`Usage: accurate-vision <image_path> [prompt] [options]
 
 Options:
-  --model <model>       Vision model ID (overrides config)
-  --api-key <key>       API key (overrides config)
-  --base-url <url>      API base URL (overrides config)
+  --model <model>       Vision model ID (overrides env)
+  --api-key <key>       API key (overrides env)
+  --base-url <url>      API base URL (overrides env)
   --no-primitives       Disable bounding-box primitives
   --json                Output raw JSON instead of formatted context
-  --config <path>       Path to config.toml (default: ~/.deepseek/config.toml)
   -h, --help            Show this help
 
 Example:
@@ -41,8 +40,7 @@ function parseArgs(argv) {
         const arg = args[i];
         if (arg === "--model" ||
             arg === "--api-key" ||
-            arg === "--base-url" ||
-            arg === "--config") {
+            arg === "--base-url") {
             overrides[arg.slice(2).replace(/-/g, "_")] = args[++i];
         }
         else if (arg === "--no-primitives") {

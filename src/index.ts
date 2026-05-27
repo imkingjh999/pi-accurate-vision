@@ -27,11 +27,7 @@ export type {
 } from "./vision/bridge.js";
 
 // Config
-export {
-	readConfig,
-	resolveVisionConfig,
-	DEFAULT_CONFIG_PATH,
-} from "./config.js";
+export { resolveVisionConfig } from "./config.js";
 
 export type { VisionModelConfig } from "./config.js";
 

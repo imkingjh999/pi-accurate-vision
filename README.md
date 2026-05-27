@@ -104,18 +104,17 @@ console.log(result.analysis);
 
 ## Config
 
-Reads from `~/.deepseek/config.toml`:
+Reads from environment variables or a `.env` file in the current directory:
 
-```toml
-[features]
-vision_model = true
-
-[vision_model]
-model = "qwen3.5-omni-plus-2026-03-15"
-# api_key = ...  # set via env var or CLI flag
-base_url = "https://dashscope.aliyuncs.com/compatible-mode/v1"
-primitives = true
+```bash
+# .env
+VISION_MODEL=qwen3.5-omni-plus-2026-03-15
+VISION_API_KEY=your-api-key
+VISION_BASE_URL=https://dashscope.aliyuncs.com/compatible-mode/v1
+VISION_PRIMITIVES=true
 ```
+
+Priority: CLI flags > environment variables > `.env` file > defaults.
 
 ## API
 
@@ -135,7 +134,7 @@ Format analysis as structured XML-like text for downstream LLM consumption.
 
 ### `resolveVisionConfig(overrides?)`
 
-Read and merge vision config from file + explicit overrides.
+Read and merge vision config from `.env` file + environment variables + explicit overrides.
 
 ## Test
 
