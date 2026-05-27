@@ -1,6 +1,6 @@
 {
   "name": "pi-accurate-vision",
-  "version": "0.1.0",
+  "version": "0.1.2",
   "description": "Accurate spatial reasoning over images — vision model extracts bounding boxes, LLM calculates exact distances",
   "type": "module",
   "main": "dist/index.js",
@@ -39,5 +39,13 @@
     "node": ">=18.0.0"
   },
   "license": "MIT",
-  "keywords": ["pi-package", "vision", "image-analysis", "openai-compatible", "multimodal", "spatial-reasoning", "bounding-box"]
+  "keywords": [
+    "pi-package",
+    "vision",
+    "image-analysis",
+    "openai-compatible",
+    "multimodal",
+    "spatial-reasoning",
+    "bounding-box"
+  ]
 }

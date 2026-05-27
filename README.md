@@ -51,23 +51,22 @@ An LLM receiving this can **calculate** exact edge-to-edge distances:
 
 Result: **✅ Correct** — 皮卡尔德 (Piccard) is 22.6 units away, the true nearest.
 
-### The Full Pipeline
+### Even GPT Gets It Wrong
+
+GPT-4o looking directly at the same image also answers 郎之万 — influenced by the connecting lines, not actual spatial distance:
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/imkingjh999/pi-accurate-vision/main/docs/image-gpt.png" width="300" alt="LLM spatial reasoning with coordinates">
+  <img src="https://raw.githubusercontent.com/imkingjh999/pi-accurate-vision/main/docs/image-gpt.png" width="300" alt="GPT-4o also gets it wrong">
 </p>
 
-```
-Image → Vision Model (extract bounding boxes) → LLM (calculate distances) → Correct Answer
-```
-
-**The vision model perceives, the LLM reasons.** Coordinates bridge the gap.
+No matter how powerful the LLM, **without precise coordinates, spatial reasoning over images is just guessing**.
 
 ### Benchmark Summary
 
 | Approach | Answer | Correct? |
 |:---|:---|:---|
 | Vision model (qwen3.5-omni-plus) alone | 郎之万 | ❌ |
+| GPT-4o (direct image analysis) | 郎之万 | ❌ |
 | Vision model + no primitives → LLM | 郎之万 | ❌ |
 | Vision model + **primitives** → LLM | **皮卡尔德** | ✅ |
 
