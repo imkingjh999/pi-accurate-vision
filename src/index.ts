@@ -5,6 +5,93 @@
  * Standalone extraction of DeepSeek-TUI's vision bridge.
  */
 
+import { Type } from "@earendil-works/pi-ai";
+import { defineTool, type ExtensionAPI } from "@earendil-works/pi-coding-agent";
+import { resolveVisionConfig } from "./config.js";
+import {
+	buildDataUrl,
+	formatVisionContext,
+	mimeTypeForPath,
+	runVisionAnalysis,
+} from "./vision/bridge.js";
+
+// ── Pi extension factory ─────────────────────────────────────────────
+
+const accurateVisionTool = defineTool({
+	name: "accurate_vision",
+	label: "Accurate Vision",
+	description:
+		"Analyze an image file with a vision model. Returns structured spatial context with bounding-box primitives (normalised 0–1000 coordinates). Use when you need precise object positions, distances, or layout info from an image.",
+	parameters: Type.Object({
+		image_path: Type.String({
+			description: "Absolute or relative path to the image file",
+		}),
+		question: Type.Optional(
+			Type.String({ description: "Optional question about the image" }),
+		),
+	}),
+	async execute(_id, params, _signal) {
+		const { readFileSync } = await import("node:fs");
+		const { resolve } = await import("node:path");
+
+		const resolvedPath = resolve(params.image_path);
+
+		const mime = mimeTypeForPath(resolvedPath);
+		if (!mime) {
+			return {
+				content: [
+					{
+						type: "text" as const,
+						text: `Unsupported image format: ${resolvedPath}`,
+					},
+				],
+				details: { model: "", primitives: 0 },
+			};
+		}
+
+		let config;
+		try {
+			config = resolveVisionConfig();
+		} catch (e) {
+			return {
+				content: [
+					{
+						type: "text" as const,
+						text: `Vision config error: ${e instanceof Error ? e.message : e}`,
+					},
+				],
+				details: { model: "", primitives: 0 },
+			};
+		}
+
+		const bytes = new Uint8Array(readFileSync(resolvedPath));
+		const dataUrl = buildDataUrl(mime, bytes);
+
+		const analysis = await runVisionAnalysis({
+			apiKey: config.apiKey ?? "",
+			baseUrl: config.baseUrl ?? "https://api.openai.com/v1",
+			model: config.model,
+			maxTokens: 8192,
+			temperature: 0.0,
+			timeoutSecs: 120,
+			imageDataUrl: dataUrl,
+			userQuestion: params.question,
+			primitives: config.primitives ?? true,
+		});
+
+		return {
+			content: [{ type: "text" as const, text: formatVisionContext(analysis) }],
+			details: { model: config.model, primitives: analysis.primitives.length },
+		};
+	},
+});
+
+export default function (pi: ExtensionAPI) {
+	pi.registerTool(accurateVisionTool);
+}
+
+// ── Named exports (library usage) ────────────────────────────────────
+
 // Core types and analysis logic
 export {
 	NORM_MAX,

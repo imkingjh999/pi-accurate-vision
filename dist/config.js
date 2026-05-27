@@ -15,9 +15,7 @@ import { join } from "node:path";
  * Ignores comments and blank lines. Does not overwrite existing env vars.
  */
 function loadDotEnv(dir) {
-    const candidates = dir
-        ? [join(dir, ".env")]
-        : [join(process.cwd(), ".env")];
+    const candidates = dir ? [join(dir, ".env")] : [join(process.cwd(), ".env")];
     for (const envPath of candidates) {
         try {
             const text = readFileSync(envPath, "utf-8");
@@ -42,8 +40,7 @@ function loadDotEnv(dir) {
             }
             return; // loaded first found
         }
-        catch {
-        }
+        catch { }
     }
 }
 /**
