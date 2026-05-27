@@ -29,9 +29,7 @@ export interface VisionModelConfig {
  * Ignores comments and blank lines. Does not overwrite existing env vars.
  */
 function loadDotEnv(dir?: string): void {
-	const candidates = dir
-		? [join(dir, ".env")]
-		: [join(process.cwd(), ".env")];
+	const candidates = dir ? [join(dir, ".env")] : [join(process.cwd(), ".env")];
 
 	for (const envPath of candidates) {
 		try {
@@ -55,8 +53,7 @@ function loadDotEnv(dir?: string): void {
 				}
 			}
 			return; // loaded first found
-		} catch {
-		}
+		} catch {}
 	}
 }
 

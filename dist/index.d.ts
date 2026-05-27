@@ -4,6 +4,8 @@
  * Vision model extracts bounding boxes, LLM calculates exact distances.
  * Standalone extraction of DeepSeek-TUI's vision bridge.
  */
+import { type ExtensionAPI } from "@earendil-works/pi-coding-agent";
+export default function (pi: ExtensionAPI): void;
 export { NORM_MAX, createBBox, buildDataUrl, mimeTypeForPath, runVisionAnalysis, parseAnalysisResponse, formatVisionContext, primitivesAnalysisPrompt, stripMarkdownFences, } from "./vision/bridge.js";
 export type { BBox, VisualPrimitive, ImageNote, VisionAnalysis, VisionAnalysisParams, } from "./vision/bridge.js";
 export { resolveVisionConfig } from "./config.js";

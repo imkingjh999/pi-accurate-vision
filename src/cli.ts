@@ -54,11 +54,7 @@ function parseArgs(argv: string[]): {
 	let i = 0;
 	while (i < args.length) {
 		const arg = args[i];
-		if (
-			arg === "--model" ||
-			arg === "--api-key" ||
-			arg === "--base-url"
-		) {
+		if (arg === "--model" || arg === "--api-key" || arg === "--base-url") {
 			overrides[arg.slice(2).replace(/-/g, "_")] = args[++i];
 		} else if (arg === "--no-primitives") {
 			overrides.primitives = false;
