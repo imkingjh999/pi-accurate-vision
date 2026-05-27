@@ -1,5 +1,5 @@
 {
-  "name": "@earendil-works/pi-accurate-vision",
+  "name": "pi-accurate-vision",
   "version": "0.1.0",
   "description": "Accurate spatial reasoning over images — vision model extracts bounding boxes, LLM calculates exact distances",
   "type": "module",
