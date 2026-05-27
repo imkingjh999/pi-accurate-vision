@@ -33,9 +33,7 @@ export {
 	DEFAULT_CONFIG_PATH,
 } from "./config.js";
 
-export type {
-	VisionModelConfig,
-} from "./config.js";
+export type { VisionModelConfig } from "./config.js";
 
 /**
  * Convenience: analyze an image file and return the formatted context string.

@@ -115,7 +115,9 @@ async function main(): Promise<void> {
 
 	const dataUrl = buildDataUrl(mime, bytes);
 
-	console.error(`[accurate-vision] Analyzing ${resolvedPath} with ${config.model}...`);
+	console.error(
+		`[accurate-vision] Analyzing ${resolvedPath} with ${config.model}...`,
+	);
 
 	const analysis = await runVisionAnalysis({
 		apiKey: config.apiKey ?? "",

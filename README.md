@@ -11,7 +11,7 @@ Vision models are great at describing what's in an image, but terrible at spatia
 Given this scientist relationship network diagram:
 
 <p align="center">
-  <img src="docs/image.png" width="400" alt="Scientist relationship network diagram">
+  <img src="https://raw.githubusercontent.com/imkingjh999/pi-accurate-vision/main/docs/image.png" width="400" alt="Scientist relationship network diagram">
 </p>
 
 Ask any vision model: *"Ignoring the connecting lines, which text box is physically closest to 居里夫人 (Marie Curie)?"*
@@ -23,7 +23,7 @@ They all get it **wrong** — answering 郎之万 (Langevin), likely influenced 
 The vision model gives only a text description — no coordinates:
 
 <p align="center">
-  <img src="docs/image-without-primitive.png" width="500" alt="Analysis without primitives">
+  <img src="https://raw.githubusercontent.com/imkingjh999/pi-accurate-vision/main/docs/image-without-primitive.png" width="500" alt="Analysis without primitives">
 </p>
 
 An LLM receiving this can only **guess** based on historical knowledge:
@@ -36,7 +36,7 @@ Result: **❌ Wrong** — spatial reasoning replaced by knowledge-based guessing
 The vision model returns bounding-box coordinates for every detected object:
 
 <p align="center">
-  <img src="docs/image-with-primitive.png" width="500" alt="Analysis with primitives">
+  <img src="https://raw.githubusercontent.com/imkingjh999/pi-accurate-vision/main/docs/image-with-primitive.png" width="500" alt="Analysis with primitives">
 </p>
 
 An LLM receiving this can **calculate** exact edge-to-edge distances:
@@ -54,7 +54,7 @@ Result: **✅ Correct** — 皮卡尔德 (Piccard) is 22.6 units away, the true 
 ### The Full Pipeline
 
 <p align="center">
-  <img src="docs/image-gpt.png" width="300" alt="LLM spatial reasoning with coordinates">
+  <img src="https://raw.githubusercontent.com/imkingjh999/pi-accurate-vision/main/docs/image-gpt.png" width="300" alt="LLM spatial reasoning with coordinates">
 </p>
 
 ```
