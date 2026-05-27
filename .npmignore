@@ -1,0 +1,19 @@
+# Source files (published in dist/)
+src/
+tsconfig.json
+
+# Dev files
+.pi-lens/
+node_modules/
+
+# Large docs images (too big for npm, view on GitHub)
+docs/
+
+# Test files
+*.test.ts
+*.test.js
+*.test.d.ts
+*.test.js.map
+
+# Source maps
+*.js.map

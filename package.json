@@ -1,0 +1,43 @@
+{
+  "name": "@earendil-works/pi-accurate-vision",
+  "version": "0.1.0",
+  "description": "Accurate spatial reasoning over images — vision model extracts bounding boxes, LLM calculates exact distances",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "bin": {
+    "accurate-vision": "dist/cli.js"
+  },
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    },
+    "./bridge": {
+      "import": "./dist/vision/bridge.js",
+      "types": "./dist/vision/bridge.d.ts"
+    },
+    "./config": {
+      "import": "./dist/config.js",
+      "types": "./dist/config.d.ts"
+    }
+  },
+  "scripts": {
+    "build": "tsc",
+    "cli": "tsx src/cli.ts",
+    "test": "tsx --test src/**/*.test.ts"
+  },
+  "dependencies": {
+    "smol-toml": "^1.3.1"
+  },
+  "devDependencies": {
+    "tsx": "^4.19.0",
+    "typescript": "^5.7.0",
+    "@types/node": "^22.0.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "license": "MIT",
+  "keywords": ["pi-package", "vision", "image-analysis", "openai-compatible", "multimodal", "spatial-reasoning", "bounding-box"]
+}

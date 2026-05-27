@@ -1,0 +1,58 @@
+{
+  "files": {
+    "src/config.ts": {
+      "modifiedRanges": [
+        {
+          "start": 1,
+          "end": 105
+        }
+      ],
+      "importsChanged": true,
+      "lastEdit": "2026-05-23T14:42:30.040Z"
+    },
+    "src/index.ts": {
+      "modifiedRanges": [
+        {
+          "start": 1,
+          "end": 91
+        }
+      ],
+      "importsChanged": false,
+      "lastEdit": "2026-05-23T04:22:36.409Z"
+    },
+    "src/cli.ts": {
+      "modifiedRanges": [
+        {
+          "start": 1,
+          "end": 143
+        }
+      ],
+      "importsChanged": true,
+      "lastEdit": "2026-05-23T04:22:36.470Z"
+    },
+    "src/vision/bridge.ts": {
+      "modifiedRanges": [
+        {
+          "start": 1,
+          "end": 460
+        }
+      ],
+      "importsChanged": false,
+      "lastEdit": "2026-05-23T04:22:36.285Z"
+    },
+    "src/vision/bridge.test.ts": {
+      "modifiedRanges": [
+        {
+          "start": 1,
+          "end": 184
+        }
+      ],
+      "importsChanged": true,
+      "lastEdit": "2026-05-23T04:22:36.531Z"
+    }
+  },
+  "turnCycles": 0,
+  "maxCycles": 3,
+  "lastUpdated": "2026-05-23T14:42:30.040Z",
+  "sessionId": "lens-mpigi9np-19f45002"
+}
