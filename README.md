@@ -79,7 +79,7 @@ npm install pi-accurate-vision
 ## CLI Usage
 
 ```bash
-# Analyze an image (reads config from ~/.deepseek/config.toml)
+# Analyze an image (reads config from .env / VISION_* env vars)
 npx accurate-vision photo.png "What's in this image?"
 
 # Output raw JSON

@@ -5,6 +5,8 @@
  */
 /** Bounding-box coordinates are normalised to `0..NORM_MAX`. */
 export declare const NORM_MAX = 1000;
+/** Maximum accepted image size in bytes (20 MB). */
+export declare const MAX_IMAGE_BYTES = 20000000;
 /** Normalised bounding box `[x1, y1, x2, y2]` in 0–1000 coordinate space. */
 export interface BBox {
     x1: number;
@@ -70,5 +72,13 @@ export declare function buildDataUrl(mime: string, bytes: Uint8Array | Buffer): 
 export declare function runVisionAnalysis(params: VisionAnalysisParams): Promise<VisionAnalysis>;
 /** Format a VisionAnalysis into structured XML-like text for downstream consumption. */
 export declare function formatVisionContext(analysis: VisionAnalysis): string;
+/**
+ * Normalize an OpenAI-format `content` field to a plain string.
+ *
+ * Some providers return `content` as an array of parts
+ * `[{type:"text",text}, ...]` instead of a plain string. This collapses
+ * such arrays (and tolerates undefined/null) into a single string.
+ */
+export declare function normalizeContent(raw: unknown): string;
 /** Strip ```json ... ``` markdown fences from a string. */
 export declare function stripMarkdownFences(s: string): string;

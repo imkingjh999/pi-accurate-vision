@@ -7,7 +7,40 @@
 import { Type } from "@earendil-works/pi-ai";
 import { defineTool } from "@earendil-works/pi-coding-agent";
 import { resolveVisionConfig } from "./config.js";
-import { buildDataUrl, formatVisionContext, mimeTypeForPath, runVisionAnalysis, } from "./vision/bridge.js";
+import { buildDataUrl, formatVisionContext, MAX_IMAGE_BYTES, mimeTypeForPath, runVisionAnalysis, } from "./vision/bridge.js";
+// ── Shared image-analysis core ───────────────────────────────────────
+/**
+ * Resolve a path, read + validate the image, and run vision analysis.
+ *
+ * Shared by the tool `execute` handler and the library `analyzeImage`
+ * helper. Throws on any error (unsupported format, missing file, oversize,
+ * or API failure); callers decide how to surface the error.
+ */
+async function analyzePath(imagePath, config, question) {
+    const { readFileSync } = await import("node:fs");
+    const { resolve } = await import("node:path");
+    const resolvedPath = resolve(imagePath);
+    const mime = mimeTypeForPath(resolvedPath);
+    if (!mime) {
+        throw new Error(`Unsupported image format: ${resolvedPath}`);
+    }
+    const bytes = new Uint8Array(readFileSync(resolvedPath));
+    if (bytes.length > MAX_IMAGE_BYTES) {
+        throw new Error(`Image too large: ${bytes.length} bytes (limit ${MAX_IMAGE_BYTES}). Reduce the image dimensions or compress it.`);
+    }
+    const dataUrl = buildDataUrl(mime, bytes);
+    return runVisionAnalysis({
+        apiKey: config.apiKey ?? "",
+        baseUrl: config.baseUrl ?? "https://api.openai.com/v1",
+        model: config.model,
+        maxTokens: 8192,
+        temperature: 0.0,
+        timeoutSecs: 120,
+        imageDataUrl: dataUrl,
+        userQuestion: question,
+        primitives: config.primitives ?? true,
+    });
+}
 // ── Pi extension factory ─────────────────────────────────────────────
 const accurateVisionTool = defineTool({
     name: "accurate_vision",
@@ -20,21 +53,6 @@ const accurateVisionTool = defineTool({
         question: Type.Optional(Type.String({ description: "Optional question about the image" })),
     }),
     async execute(_id, params, _signal) {
-        const { readFileSync } = await import("node:fs");
-        const { resolve } = await import("node:path");
-        const resolvedPath = resolve(params.image_path);
-        const mime = mimeTypeForPath(resolvedPath);
-        if (!mime) {
-            return {
-                content: [
-                    {
-                        type: "text",
-                        text: `Unsupported image format: ${resolvedPath}`,
-                    },
-                ],
-                details: { model: "", primitives: 0 },
-            };
-        }
         let config;
         try {
             config = resolveVisionConfig();
@@ -50,23 +68,29 @@ const accurateVisionTool = defineTool({
                 details: { model: "", primitives: 0 },
             };
         }
-        const bytes = new Uint8Array(readFileSync(resolvedPath));
-        const dataUrl = buildDataUrl(mime, bytes);
-        const analysis = await runVisionAnalysis({
-            apiKey: config.apiKey ?? "",
-            baseUrl: config.baseUrl ?? "https://api.openai.com/v1",
-            model: config.model,
-            maxTokens: 8192,
-            temperature: 0.0,
-            timeoutSecs: 120,
-            imageDataUrl: dataUrl,
-            userQuestion: params.question,
-            primitives: config.primitives ?? true,
-        });
-        return {
-            content: [{ type: "text", text: formatVisionContext(analysis) }],
-            details: { model: config.model, primitives: analysis.primitives.length },
-        };
+        try {
+            const analysis = await analyzePath(params.image_path, config, params.question);
+            return {
+                content: [
+                    { type: "text", text: formatVisionContext(analysis) },
+                ],
+                details: {
+                    model: config.model,
+                    primitives: analysis.primitives.length,
+                },
+            };
+        }
+        catch (e) {
+            return {
+                content: [
+                    {
+                        type: "text",
+                        text: `Vision analysis failed: ${e instanceof Error ? e.message : e}`,
+                    },
+                ],
+                details: { model: config.model, primitives: 0 },
+            };
+        }
     },
 });
 export default function (pi) {
@@ -74,9 +98,9 @@ export default function (pi) {
 }
 // ── Named exports (library usage) ────────────────────────────────────
 // Core types and analysis logic
-export { NORM_MAX, createBBox, buildDataUrl, mimeTypeForPath, runVisionAnalysis, parseAnalysisResponse, formatVisionContext, primitivesAnalysisPrompt, stripMarkdownFences, } from "./vision/bridge.js";
+export { NORM_MAX, MAX_IMAGE_BYTES, createBBox, buildDataUrl, mimeTypeForPath, runVisionAnalysis, parseAnalysisResponse, formatVisionContext, primitivesAnalysisPrompt, stripMarkdownFences, normalizeContent, } from "./vision/bridge.js";
 // Config
-export { resolveVisionConfig } from "./config.js";
+export { resolveVisionConfig, parseDotEnv } from "./config.js";
 /**
  * Convenience: analyze an image file and return the formatted context string.
  *
@@ -85,27 +109,7 @@ export { resolveVisionConfig } from "./config.js";
  * @param prompt - Optional user question / prompt
  */
 export async function analyzeImage(imagePath, config, prompt) {
-    const { readFileSync } = await import("node:fs");
-    const { resolve } = await import("node:path");
-    const { buildDataUrl, mimeTypeForPath, runVisionAnalysis, formatVisionContext, } = await import("./vision/bridge.js");
-    const resolvedPath = resolve(imagePath);
-    const mime = mimeTypeForPath(resolvedPath);
-    if (!mime) {
-        throw new Error(`Unsupported image format: ${resolvedPath}`);
-    }
-    const bytes = readFileSync(resolvedPath);
-    const dataUrl = buildDataUrl(mime, new Uint8Array(bytes));
-    const analysis = await runVisionAnalysis({
-        apiKey: config.apiKey ?? "",
-        baseUrl: config.baseUrl ?? "https://api.openai.com/v1",
-        model: config.model,
-        maxTokens: 8192,
-        temperature: 0.0,
-        timeoutSecs: 120,
-        imageDataUrl: dataUrl,
-        userQuestion: prompt,
-        primitives: config.primitives ?? true,
-    });
+    const analysis = await analyzePath(imagePath, config, prompt);
     return {
         analysis: formatVisionContext(analysis),
         model: config.model,

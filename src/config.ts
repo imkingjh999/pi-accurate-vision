@@ -25,36 +25,63 @@ export interface VisionModelConfig {
 }
 
 /**
+ * Parse .env text into a key->value map (pure function, no side effects).
+ *
+ * Handles:
+ * - `export KEY=val` prefixes (the `export ` is stripped from the key)
+ * - inline ` #...` comments on unquoted values (quoted values keep their #)
+ * - surrounding single/double quotes (removed)
+ * - blank lines and full-line `#` comments (ignored)
+ */
+export function parseDotEnv(text: string): Record<string, string> {
+	const result: Record<string, string> = {};
+	for (const line of text.split("\n")) {
+		const trimmed = line.trim();
+		if (!trimmed || trimmed.startsWith("#")) continue;
+		const eq = trimmed.indexOf("=");
+		if (eq === -1) continue;
+		const key = trimmed.slice(0, eq).trim().replace(/^export\s+/, "");
+		const raw = trimmed.slice(eq + 1).trim();
+		const quoted =
+			raw.length >= 2 &&
+			((raw.startsWith('"') && raw.endsWith('"')) ||
+				(raw.startsWith("'") && raw.endsWith("'")));
+		const val = quoted ? raw.slice(1, -1) : stripInlineComment(raw);
+		if (key) {
+			result[key] = val;
+		}
+	}
+	return result;
+}
+
+/** Strip an inline ` # comment` from an unquoted env value (keeps `bar#baz`). */
+function stripInlineComment(val: string): string {
+	const idx = val.indexOf(" #");
+	return idx === -1 ? val : val.slice(0, idx).trim();
+}
+
+let dotEnvLoaded = false;
+
+/**
  * Read a .env file and populate process.env with its values.
  * Ignores comments and blank lines. Does not overwrite existing env vars.
+ * Memoised: only reads from disk once per process.
  */
 function loadDotEnv(dir?: string): void {
-	const candidates = dir ? [join(dir, ".env")] : [join(process.cwd(), ".env")];
-
-	for (const envPath of candidates) {
-		try {
-			const text = readFileSync(envPath, "utf-8");
-			for (const line of text.split("\n")) {
-				const trimmed = line.trim();
-				if (!trimmed || trimmed.startsWith("#")) continue;
-				const eq = trimmed.indexOf("=");
-				if (eq === -1) continue;
-				const key = trimmed.slice(0, eq).trim();
-				const val = trimmed.slice(eq + 1).trim();
-				// Remove surrounding quotes
-				const clean =
-					(val.startsWith('"') && val.endsWith('"')) ||
-					(val.startsWith("'") && val.endsWith("'"))
-						? val.slice(1, -1)
-						: val;
-				// Don't overwrite existing env vars (CLI / shell takes priority)
-				if (process.env[key] === undefined) {
-					process.env[key] = clean;
-				}
+	if (dotEnvLoaded) return;
+	const envPath = dir ? join(dir, ".env") : join(process.cwd(), ".env");
+	try {
+		const text = readFileSync(envPath, "utf-8");
+		for (const [key, val] of Object.entries(parseDotEnv(text))) {
+			// Don't overwrite existing env vars (CLI / shell takes priority)
+			if (process.env[key] === undefined) {
+				process.env[key] = val;
 			}
-			return; // loaded first found
-		} catch {}
+		}
+	} catch {
+		// No .env file found - continue silently; env vars / CLI flags still work.
 	}
+	dotEnvLoaded = true;
 }
 
 /**

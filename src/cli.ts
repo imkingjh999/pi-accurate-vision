@@ -14,6 +14,7 @@ import { resolveVisionConfig } from "./config.js";
 import {
 	buildDataUrl,
 	formatVisionContext,
+	MAX_IMAGE_BYTES,
 	mimeTypeForPath,
 	runVisionAnalysis,
 } from "./vision/bridge.js";
@@ -51,19 +52,29 @@ function parseArgs(argv: string[]): {
 	let prompt: string | undefined;
 	const overrides: Record<string, string | boolean> = {};
 
+	const VALUE_FLAGS = new Set(["--model", "--api-key", "--base-url"]);
 	let i = 0;
 	while (i < args.length) {
 		const arg = args[i];
-		if (arg === "--model" || arg === "--api-key" || arg === "--base-url") {
-			overrides[arg.slice(2).replace(/-/g, "_")] = args[++i];
+		if (VALUE_FLAGS.has(arg)) {
+			const val = args[++i];
+			if (val === undefined) {
+				console.error(`Error: ${arg} requires a value`);
+				printUsage();
+			}
+			overrides[arg.slice(2).replace(/-/g, "_")] = val;
 		} else if (arg === "--no-primitives") {
 			overrides.primitives = false;
 		} else if (arg === "--json") {
 			overrides.json = true;
-		} else if (!imagePath) {
-			imagePath = arg;
-		} else if (!prompt) {
-			prompt = arg;
+		} else if (!arg.startsWith("-")) {
+			if (!imagePath) {
+				imagePath = arg;
+			} else if (!prompt) {
+				prompt = arg;
+			}
+		} else {
+			console.error(`Warning: unknown option ${arg}`);
 		}
 		i++;
 	}
@@ -103,6 +114,13 @@ async function main(): Promise<void> {
 	} catch (e) {
 		console.error(
 			`Error: Failed to read image: ${e instanceof Error ? e.message : e}`,
+		);
+		process.exit(1);
+	}
+
+	if (bytes.length > MAX_IMAGE_BYTES) {
+		console.error(
+			`Error: Image too large: ${bytes.length} bytes (limit ${MAX_IMAGE_BYTES}). Reduce the image dimensions or compress it.`,
 		);
 		process.exit(1);
 	}

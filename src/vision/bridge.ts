@@ -4,10 +4,25 @@
  * Faithful TypeScript port of DeepSeek-TUI's crates/tui/src/vision/bridge.rs.
  */
 
+import { createRequire } from "node:module";
+
 // ── Constants ────────────────────────────────────────────────────────
 
 /** Bounding-box coordinates are normalised to `0..NORM_MAX`. */
 export const NORM_MAX = 1000;
+
+/** Maximum accepted image size in bytes (20 MB). */
+export const MAX_IMAGE_BYTES = 20_000_000;
+
+/** This package's version, read from package.json for the User-Agent header. */
+const PKG_VERSION: string = (() => {
+	try {
+		// createRequire lets an ESM module synchronously load package.json.
+		return createRequire(import.meta.url)("../../package.json").version;
+	} catch {
+		return "0.0.0";
+	}
+})();
 
 // ── Types ────────────────────────────────────────────────────────────
 
@@ -89,14 +104,14 @@ const NOTE_JSON_SHAPE = `
   "user_request": "restate the user request in one short sentence",
   "user_request_answer": "answer the user request using the image when possible",
   "evidence": "visual evidence supporting that answer",
-  "uncertainty": "anything unclear, hidden, or guessed"
-}`;
+  "uncertainty": "anything unclear, hidden, or guessed"`;
 
 function noteOnlyPrompt(): string {
 	return (
 		`Analyze this image for another text-only model.\n` +
 		`Return only one valid JSON object. Do not wrap it in Markdown.\n` +
 		`Use this exact shape:${NOTE_JSON_SHAPE}\n` +
+		`}\n` +
 		`Do not mention that you are a tool or a separate model.`
 	);
 }
@@ -105,10 +120,10 @@ export function primitivesAnalysisPrompt(): string {
 	return (
 		`Analyze this image for another text-only model.\n` +
 		`Return only one valid JSON object. Do not wrap it in Markdown.\n` +
-		`Use this exact shape:${NOTE_JSON_SHAPE}\n` +
-		`"visual_primitives": [\n` +
-		`  {"id":"v1","type":"box","ref":"short label","bbox_2d":[x1,y1,x2,y2],"confidence":0.0}\n` +
-		`]\n` +
+		`Use this exact shape:${NOTE_JSON_SHAPE},\n` +
+		`  "visual_primitives": [\n` +
+		`    {"id":"v1","type":"box","ref":"short label","bbox_2d":[100,200,500,600],"confidence":0.95}\n` +
+		`  ]\n` +
 		`}\n` +
 		`IMPORTANT RULES:\n` +
 		`- visual_primitives is REQUIRED. You MUST output one entry for EVERY distinguishable object.\n` +
@@ -220,19 +235,20 @@ function normalizePrimitive(
 	if (nums.some(isNaN)) return null;
 
 	const clamp = (v: number) => Math.max(0, Math.min(NORM_MAX, Math.round(v)));
-	let box: BBox;
-	try {
-		box = createBBox(
-			clamp(nums[0]),
-			clamp(nums[1]),
-			clamp(nums[2]),
-			clamp(nums[3]),
-		);
-	} catch {
-		return null;
-	}
+	// Clamp to 0..NORM_MAX, then normalise the two corner points so that
+	// x1<=x2 and y1<=y2 regardless of the order the model returned them in.
+	const a = [clamp(nums[0]), clamp(nums[1])];
+	const b = [clamp(nums[2]), clamp(nums[3])];
+	const box: BBox = {
+		x1: Math.min(a[0], b[0]),
+		y1: Math.min(a[1], b[1]),
+		x2: Math.max(a[0], b[0]),
+		y2: Math.max(a[1], b[1]),
+	};
 
-	const confidence = typeof obj.confidence === "number" ? obj.confidence : 0.0;
+	const rawConfidence =
+		typeof obj.confidence === "number" ? obj.confidence : 0.0;
+	const confidence = Math.max(0, Math.min(1, rawConfidence));
 
 	return { id, type: type_, label, box, confidence };
 }
@@ -241,6 +257,11 @@ function strField(obj: Record<string, unknown>, names: string[]): string {
 	for (const n of names) {
 		const v = obj[n];
 		if (typeof v === "string") return v;
+		if (Array.isArray(v)) {
+			return v
+				.map((x) => (typeof x === "string" ? x : String(x)))
+				.join("; ");
+		}
 	}
 	return "";
 }
@@ -339,8 +360,7 @@ export async function runVisionAnalysis(
 			headers: {
 				Authorization: `Bearer ${params.apiKey}`,
 				"Content-Type": "application/json",
-				"User-Agent":
-					"pi-accurate-vision/0.1.0 (+https://github.com/user/pi-accurate-vision)",
+				"User-Agent": `pi-accurate-vision/${PKG_VERSION} (+https://github.com/imkingjh999/pi-accurate-vision)`,
 			},
 			body: JSON.stringify(body),
 			signal: controller.signal,
@@ -351,6 +371,16 @@ export async function runVisionAnalysis(
 		if (!resp.ok) {
 			throw new Error(`Vision API HTTP ${resp.status}: ${responseText}`);
 		}
+	} catch (e) {
+		const aborted =
+			controller.signal.aborted ||
+			(e instanceof Error && e.name === "AbortError");
+		if (aborted) {
+			throw new Error(
+				`Vision request timed out after ${params.timeoutSecs}s`,
+			);
+		}
+		throw e;
 	} finally {
 		clearTimeout(timeout);
 	}
@@ -359,7 +389,7 @@ export async function runVisionAnalysis(
 	let content: string;
 	try {
 		const parsed = JSON.parse(responseText);
-		content = parsed?.choices?.[0]?.message?.content ?? "";
+		content = normalizeContent(parsed?.choices?.[0]?.message?.content);
 	} catch {
 		throw new Error(
 			`Failed to parse vision API response: ${responseText.slice(0, 200)}`,
@@ -443,6 +473,25 @@ function pushOptTag(
 }
 
 // ── Helpers ──────────────────────────────────────────────────────────
+
+/**
+ * Normalize an OpenAI-format `content` field to a plain string.
+ *
+ * Some providers return `content` as an array of parts
+ * `[{type:"text",text}, ...]` instead of a plain string. This collapses
+ * such arrays (and tolerates undefined/null) into a single string.
+ */
+export function normalizeContent(raw: unknown): string {
+	if (typeof raw === "string") return raw;
+	if (Array.isArray(raw)) {
+		return raw
+			.map((p) =>
+				typeof p === "string" ? p : (p?.text ?? ""),
+			)
+			.join("\n");
+	}
+	return "";
+}
 
 /** Strip ```json ... ``` markdown fences from a string. */
 export function stripMarkdownFences(s: string): string {

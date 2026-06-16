@@ -25,7 +25,7 @@
   "scripts": {
     "build": "tsc",
     "cli": "tsx src/cli.ts",
-    "test": "tsx --test src/**/*.test.ts"
+    "test": "tsx --test 'src/**/*.test.ts'"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",

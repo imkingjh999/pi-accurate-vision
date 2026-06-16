@@ -20,6 +20,16 @@ export interface VisionModelConfig {
     primitives?: boolean;
 }
 /**
+ * Parse .env text into a key->value map (pure function, no side effects).
+ *
+ * Handles:
+ * - `export KEY=val` prefixes (the `export ` is stripped from the key)
+ * - inline ` #...` comments on unquoted values (quoted values keep their #)
+ * - surrounding single/double quotes (removed)
+ * - blank lines and full-line `#` comments (ignored)
+ */
+export declare function parseDotEnv(text: string): Record<string, string>;
+/**
  * Resolve the effective vision model config.
  *
  * Priority:

@@ -5,10 +5,11 @@
  * Standalone extraction of DeepSeek-TUI's vision bridge.
  */
 import { type ExtensionAPI } from "@earendil-works/pi-coding-agent";
+import { type VisionModelConfig } from "./config.js";
 export default function (pi: ExtensionAPI): void;
-export { NORM_MAX, createBBox, buildDataUrl, mimeTypeForPath, runVisionAnalysis, parseAnalysisResponse, formatVisionContext, primitivesAnalysisPrompt, stripMarkdownFences, } from "./vision/bridge.js";
+export { NORM_MAX, MAX_IMAGE_BYTES, createBBox, buildDataUrl, mimeTypeForPath, runVisionAnalysis, parseAnalysisResponse, formatVisionContext, primitivesAnalysisPrompt, stripMarkdownFences, normalizeContent, } from "./vision/bridge.js";
 export type { BBox, VisualPrimitive, ImageNote, VisionAnalysis, VisionAnalysisParams, } from "./vision/bridge.js";
-export { resolveVisionConfig } from "./config.js";
+export { resolveVisionConfig, parseDotEnv } from "./config.js";
 export type { VisionModelConfig } from "./config.js";
 /**
  * Convenience: analyze an image file and return the formatted context string.
@@ -17,7 +18,7 @@ export type { VisionModelConfig } from "./config.js";
  * @param config - Vision model configuration
  * @param prompt - Optional user question / prompt
  */
-export declare function analyzeImage(imagePath: string, config: import("./config.js").VisionModelConfig, prompt?: string): Promise<{
+export declare function analyzeImage(imagePath: string, config: VisionModelConfig, prompt?: string): Promise<{
     analysis: string;
     model: string;
     primitivesCount: number;

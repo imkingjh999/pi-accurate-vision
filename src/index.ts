@@ -7,13 +7,61 @@
 
 import { Type } from "@earendil-works/pi-ai";
 import { defineTool, type ExtensionAPI } from "@earendil-works/pi-coding-agent";
-import { resolveVisionConfig } from "./config.js";
+import { resolveVisionConfig, type VisionModelConfig } from "./config.js";
 import {
 	buildDataUrl,
 	formatVisionContext,
+	MAX_IMAGE_BYTES,
 	mimeTypeForPath,
 	runVisionAnalysis,
+	type VisionAnalysis,
 } from "./vision/bridge.js";
+
+// ── Shared image-analysis core ───────────────────────────────────────
+
+/**
+ * Resolve a path, read + validate the image, and run vision analysis.
+ *
+ * Shared by the tool `execute` handler and the library `analyzeImage`
+ * helper. Throws on any error (unsupported format, missing file, oversize,
+ * or API failure); callers decide how to surface the error.
+ */
+async function analyzePath(
+	imagePath: string,
+	config: VisionModelConfig,
+	question?: string,
+): Promise<VisionAnalysis> {
+	const { readFileSync } = await import("node:fs");
+	const { resolve } = await import("node:path");
+
+	const resolvedPath = resolve(imagePath);
+
+	const mime = mimeTypeForPath(resolvedPath);
+	if (!mime) {
+		throw new Error(`Unsupported image format: ${resolvedPath}`);
+	}
+
+	const bytes = new Uint8Array(readFileSync(resolvedPath));
+	if (bytes.length > MAX_IMAGE_BYTES) {
+		throw new Error(
+			`Image too large: ${bytes.length} bytes (limit ${MAX_IMAGE_BYTES}). Reduce the image dimensions or compress it.`,
+		);
+	}
+
+	const dataUrl = buildDataUrl(mime, bytes);
+
+	return runVisionAnalysis({
+		apiKey: config.apiKey ?? "",
+		baseUrl: config.baseUrl ?? "https://api.openai.com/v1",
+		model: config.model,
+		maxTokens: 8192,
+		temperature: 0.0,
+		timeoutSecs: 120,
+		imageDataUrl: dataUrl,
+		userQuestion: question,
+		primitives: config.primitives ?? true,
+	});
+}
 
 // ── Pi extension factory ─────────────────────────────────────────────
 
@@ -31,25 +79,7 @@ const accurateVisionTool = defineTool({
 		),
 	}),
 	async execute(_id, params, _signal) {
-		const { readFileSync } = await import("node:fs");
-		const { resolve } = await import("node:path");
-
-		const resolvedPath = resolve(params.image_path);
-
-		const mime = mimeTypeForPath(resolvedPath);
-		if (!mime) {
-			return {
-				content: [
-					{
-						type: "text" as const,
-						text: `Unsupported image format: ${resolvedPath}`,
-					},
-				],
-				details: { model: "", primitives: 0 },
-			};
-		}
-
-		let config;
+		let config: VisionModelConfig;
 		try {
 			config = resolveVisionConfig();
 		} catch (e) {
@@ -64,25 +94,32 @@ const accurateVisionTool = defineTool({
 			};
 		}
 
-		const bytes = new Uint8Array(readFileSync(resolvedPath));
-		const dataUrl = buildDataUrl(mime, bytes);
-
-		const analysis = await runVisionAnalysis({
-			apiKey: config.apiKey ?? "",
-			baseUrl: config.baseUrl ?? "https://api.openai.com/v1",
-			model: config.model,
-			maxTokens: 8192,
-			temperature: 0.0,
-			timeoutSecs: 120,
-			imageDataUrl: dataUrl,
-			userQuestion: params.question,
-			primitives: config.primitives ?? true,
-		});
-
-		return {
-			content: [{ type: "text" as const, text: formatVisionContext(analysis) }],
-			details: { model: config.model, primitives: analysis.primitives.length },
-		};
+		try {
+			const analysis = await analyzePath(
+				params.image_path,
+				config,
+				params.question,
+			);
+			return {
+				content: [
+					{ type: "text" as const, text: formatVisionContext(analysis) },
+				],
+				details: {
+					model: config.model,
+					primitives: analysis.primitives.length,
+				},
+			};
+		} catch (e) {
+			return {
+				content: [
+					{
+						type: "text" as const,
+						text: `Vision analysis failed: ${e instanceof Error ? e.message : e}`,
+					},
+				],
+				details: { model: config.model, primitives: 0 },
+			};
+		}
 	},
 });
 
@@ -95,6 +132,7 @@ export default function (pi: ExtensionAPI) {
 // Core types and analysis logic
 export {
 	NORM_MAX,
+	MAX_IMAGE_BYTES,
 	createBBox,
 	buildDataUrl,
 	mimeTypeForPath,
@@ -103,6 +141,7 @@ export {
 	formatVisionContext,
 	primitivesAnalysisPrompt,
 	stripMarkdownFences,
+	normalizeContent,
 } from "./vision/bridge.js";
 
 export type {
@@ -114,7 +153,7 @@ export type {
 } from "./vision/bridge.js";
 
 // Config
-export { resolveVisionConfig } from "./config.js";
+export { resolveVisionConfig, parseDotEnv } from "./config.js";
 
 export type { VisionModelConfig } from "./config.js";
 
@@ -127,41 +166,10 @@ export type { VisionModelConfig } from "./config.js";
  */
 export async function analyzeImage(
 	imagePath: string,
-	config: import("./config.js").VisionModelConfig,
+	config: VisionModelConfig,
 	prompt?: string,
 ): Promise<{ analysis: string; model: string; primitivesCount: number }> {
-	const { readFileSync } = await import("node:fs");
-	const { resolve } = await import("node:path");
-
-	const {
-		buildDataUrl,
-		mimeTypeForPath,
-		runVisionAnalysis,
-		formatVisionContext,
-	} = await import("./vision/bridge.js");
-
-	const resolvedPath = resolve(imagePath);
-
-	const mime = mimeTypeForPath(resolvedPath);
-	if (!mime) {
-		throw new Error(`Unsupported image format: ${resolvedPath}`);
-	}
-
-	const bytes = readFileSync(resolvedPath);
-	const dataUrl = buildDataUrl(mime, new Uint8Array(bytes));
-
-	const analysis = await runVisionAnalysis({
-		apiKey: config.apiKey ?? "",
-		baseUrl: config.baseUrl ?? "https://api.openai.com/v1",
-		model: config.model,
-		maxTokens: 8192,
-		temperature: 0.0,
-		timeoutSecs: 120,
-		imageDataUrl: dataUrl,
-		userQuestion: prompt,
-		primitives: config.primitives ?? true,
-	});
-
+	const analysis = await analyzePath(imagePath, config, prompt);
 	return {
 		analysis: formatVisionContext(analysis),
 		model: config.model,

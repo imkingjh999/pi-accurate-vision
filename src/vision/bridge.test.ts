@@ -9,6 +9,7 @@ import {
 	mimeTypeForPath,
 	buildDataUrl,
 	primitivesAnalysisPrompt,
+	normalizeContent,
 } from "./bridge.js";
 
 describe("BBox", () => {
@@ -111,6 +112,32 @@ describe("parseAnalysisResponse", () => {
 		assert.equal(a.note.imageOverview, "Just text");
 		assert.equal(a.primitives.length, 0);
 	});
+
+	it("parses visible_text as array (joined with semicolons)", () => {
+		const raw = JSON.stringify({
+			image_overview: "x",
+			visible_text: ["a", "b"],
+		});
+		const a = parseAnalysisResponse(raw);
+		assert.equal(a.note.visibleText, "a; b");
+	});
+
+	it("normalises inverted bounding boxes (x1>x2, y1>y2)", () => {
+		const raw = JSON.stringify({
+			image_overview: "x",
+			visual_primitives: [
+				{ id: "v1", box: [500, 600, 100, 200] }, // inverted corners
+			],
+		});
+		const a = parseAnalysisResponse(raw);
+		assert.equal(a.primitives.length, 1);
+		assert.deepEqual(a.primitives[0].box, {
+			x1: 100,
+			y1: 200,
+			x2: 500,
+			y2: 600,
+		});
+	});
 });
 
 describe("formatVisionContext", () => {
@@ -179,5 +206,32 @@ describe("primitivesAnalysisPrompt", () => {
 		assert.ok(p.includes("visual_primitives"));
 		assert.ok(p.includes("bbox_2d"));
 		assert.ok(p.includes("0-1000"));
+	});
+
+	it("produces a parseable JSON shape", () => {
+		const p = primitivesAnalysisPrompt();
+		const block = p.slice(p.indexOf("{"), p.lastIndexOf("}") + 1);
+		assert.doesNotThrow(
+			() => JSON.parse(block),
+			"prompt shape must be valid JSON",
+		);
+	});
+});
+
+describe("normalizeContent", () => {
+	it("passes through strings unchanged", () => {
+		assert.equal(normalizeContent("hi"), "hi");
+	});
+
+	it("normalizes array content to string", () => {
+		assert.equal(
+			normalizeContent([{ type: "text", text: "a" }, { type: "text", text: "b" }]),
+			"a\nb",
+		);
+	});
+
+	it("returns empty string for undefined/null", () => {
+		assert.equal(normalizeContent(undefined), "");
+		assert.equal(normalizeContent(null), "");
 	});
 });
