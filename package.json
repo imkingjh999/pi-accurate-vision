@@ -1,6 +1,6 @@
 {
   "name": "pi-accurate-vision",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "description": "Accurate spatial reasoning over images — vision model extracts bounding boxes, LLM calculates exact distances",
   "type": "module",
   "main": "dist/index.js",
